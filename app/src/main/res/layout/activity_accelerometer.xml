@@ -39,7 +39,7 @@
             android:layout_height="wrap_content">
 
             <Button
-                android:text="查看文件"
+                android:text="发送数据"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:id="@+id/open"
