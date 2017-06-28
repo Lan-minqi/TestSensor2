@@ -90,6 +90,7 @@ public class Accelerometer extends AppCompatActivity {
     private float x1, y1, z1;
     private float x2, y2, z2;
     private float x3, y3, z3;
+    private final float[] angles = new float[3];
     private static final float NS2S = 1.0f / 1000000000.0f;
     private final float[] deltaRotationVector = new float[4];
     private float timestamp;
@@ -315,10 +316,8 @@ public class Accelerometer extends AppCompatActivity {
             }
             filedetail = "";
         }
-//        filedetail += sDateFormat.format(new Date()) + "\nx1 " + x1 + " y1 " + y1 + " z1 " + z1 + "\nx2 " + x2 + " y2 " + y2 + " z2 " + z2 + "\n";
-        filedetail += sDateFormat.format(new Date()) + "\nQx " + deltaRotationVector[0] + " Qy " + deltaRotationVector[1] +
-                " Qz " + deltaRotationVector[2] + " Q0 " + deltaRotationVector[3] +
-                "\nx2 " + x2 + " y2 " + y2 + " z2 " + z2 + "\n";
+        filedetail += sDateFormat.format(new Date()) + "\nx1 " + x1 + " y1 " + y1 + " z1 " + z1
+                + "\nx2 " + x2 + " y2 " + y2 + " z2 " + z2 + "\nx3 " + x3 + " y3 " + y3 + " z3 " + z3 + "\n";
         data_num++;
     }
 
@@ -326,34 +325,10 @@ public class Accelerometer extends AppCompatActivity {
         try
         {
             if(true){
-                //传数据给matlab不使用json
-//                JSONObject json1 = new JSONObject();
-//                json1.put("time", System.currentTimeMillis());
-//                json1.put("QX", deltaRotationVector[0]);
-//                json1.put("QY", deltaRotationVector[1]);
-//                json1.put("QZ", deltaRotationVector[2]);
-//                json1.put("Q", deltaRotationVector[3]);
-//                json1.put("accX", x2);
-//                json1.put("accY", y2);
-//                json1.put("accZ", z2);
                 String content = new String(String.valueOf(System.currentTimeMillis()) + ' ' +
-                        String.valueOf(x1) + ' ' +
-                        String.valueOf(y1) + ' ' +
-                        String.valueOf(z1) + ' ' +
-                        String.valueOf(x2) + ' ' +
-                        String.valueOf(y2) + ' ' +
-                        String.valueOf(z2) + ' ' +
-                        String.valueOf(x3) + ' ' +
-                        String.valueOf(y3) + ' ' +
-                        String.valueOf(z3) + '\n');
-//                String content = new String(String.valueOf(System.currentTimeMillis()) + ' ' +
-//                        String.valueOf(deltaRotationVector[0]) + ' ' +
-//                        String.valueOf(deltaRotationVector[1]) + ' ' +
-//                        String.valueOf(deltaRotationVector[2]) + ' ' +
-//                        String.valueOf(deltaRotationVector[3]) + ' ' +
-//                        String.valueOf(x2) + ' ' +
-//                        String.valueOf(y2) + ' ' +
-//                        String.valueOf(z2) + '\n');
+                        String.valueOf(angles[0]) + ' ' +
+                        String.valueOf(angles[1]) + ' ' +
+                        String.valueOf(angles[2]) + '\n');
                 int l = content.length();
                 String sentData = new String(String.valueOf(l) + ' ' + content);
                 Log.i("de","sa "+sentData);
@@ -425,50 +400,13 @@ public class Accelerometer extends AppCompatActivity {
                 x1 = event.values[SensorManager.DATA_X];
                 y1 = event.values[SensorManager.DATA_Y];
                 z1 = event.values[SensorManager.DATA_Z];
-//                if (timestamp != 0) {
-//                    final float dT = (event.timestamp - timestamp) * NS2S;
-//                    // Axis of the rotation sample, not normalized yet.
-//                    float axisX = event.values[0];
-//                    float axisY = event.values[1];
-//                    float axisZ = event.values[2];
-//
-//                    // Calculate the angular speed of the sample
-//                    float omegaMagnitude = (float)Math.sqrt(axisX*axisX + axisY*axisY + axisZ*axisZ);
-//                    zeroShift = omegaMagnitude;
-//                    // Normalize the rotation vector if it's big enough to get the axis
-//                    if (omegaMagnitude > EPSILON) {
-//                        axisX /= omegaMagnitude;
-//                        axisY /= omegaMagnitude;
-//                        axisZ /= omegaMagnitude;
-//                    }else Log.i("debug omega", start_time+omegaMagnitude);
-//
-//                    // Integrate around this axis with the angular speed by the timestep
-//                    // in order to get a delta rotation from this sample over the timestep
-//                    // We will convert this axis-angle representation of the delta rotation
-//                    // into a quaternion before turning it into the rotation matrix.
-//                    float thetaOverTwo = omegaMagnitude * dT / 2.0f;
-//                    float sinThetaOverTwo = (float)Math.sin(thetaOverTwo);
-//                    float cosThetaOverTwo = (float)Math.cos(thetaOverTwo);
-//                    deltaRotationVector[0] = sinThetaOverTwo * axisX;
-//                    deltaRotationVector[1] = sinThetaOverTwo * axisY;
-//                    deltaRotationVector[2] = sinThetaOverTwo * axisZ;
-//                    deltaRotationVector[3] = cosThetaOverTwo;
-//                }
-//                timestamp = event.timestamp;
             }
             //得到加速度的值
             else if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER && !isPaused) {
                 x2 = event.values[SensorManager.DATA_X];
                 y2 = event.values[SensorManager.DATA_Y];
                 z2 = event.values[SensorManager.DATA_Z];
-                //去除重力
-//                gravity[0] = alpha * gravity[0] + (1 - alpha) * event.values[0];
-//                gravity[1] = alpha * gravity[1] + (1 - alpha) * event.values[1];
-//                gravity[2] = alpha * gravity[2] + (1 - alpha) * event.values[2];
-//
-//                x2 = event.values[0] - gravity[0];
-//                y2 = event.values[1] - gravity[1];
-//                z2 = event.values[2] - gravity[2];
+
             }
             else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD && !isPaused) {
                 x3 = event.values[SensorManager.DATA_X];
