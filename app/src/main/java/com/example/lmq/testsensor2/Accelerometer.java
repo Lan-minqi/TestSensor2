@@ -84,12 +84,8 @@ public class Accelerometer extends AppCompatActivity {
     private String urlPath="192.168.56.1";
     private Socket socket;
     private boolean stopClicked = false;
-    private boolean useNet = false;
+    private boolean useNet = true;
     //！！！使用时手机要和服务器处于同一局域网下。。。
-
-    private float x1, y1, z1;
-    private float x2, y2, z2;
-    private float x3, y3, z3;
 
     private final float[] angles = new float[3];
     private static final float NS2S = 1.0f / 1000000000.0f;
@@ -97,9 +93,16 @@ public class Accelerometer extends AppCompatActivity {
     private final float[] deltaRotationMatrix = new float[9];
     private float[] currentRotationMatrix = new float[9];
     private float[] initialRotationMatrix = new float[9];
-    private float[] gyroscopeOrientation = new float[3];
-    private float[] acceleration = new float[3];
-    private float[] magnetic = new float[3];
+    private float[] accMagOrientation = new float[3];
+    private float[] gyroOrientation = new float[3];
+    private float[] fusedOrientation = new float[3];
+    //基于加速度和磁力计的旋转矩阵
+    private float[] rotationMatrix = new float[9];
+    private float[] accel = new float[3];
+    private float[] magnet = new float[3];
+    private float[] gyro = new float[3];
+    public static final int TIME_CONSTANT = 30;
+    public static final float FILTER_COEFFICIENT = 0.98f;
     private float timestamp = 0;
     private float timestampOld = 0;
     private boolean stateInitialized = false;
@@ -175,13 +178,15 @@ public class Accelerometer extends AppCompatActivity {
                 data_num = 0;
                 timestamp = 0;
                 Timer timer = new Timer();
+                //Timer fuseTimer = new Timer();
                 timer.schedule(new TimerTask() {
                     @Override
                     public void run() {
                         if(isPaused) return;
                         writeFile(false);
                         // TODO Auto-generated method stub
-                    }},0, 50);
+                    }},0, 20);
+                //fuseTimer.scheduleAtFixedRate(new calculateFusedOrientationTask(), 1000, TIME_CONSTANT);
                 Log.i("debug start", start_time+ Environment.getExternalStorageDirectory());
                 onResume();
                 uiHandle.removeMessages(1);
@@ -281,6 +286,27 @@ public class Accelerometer extends AppCompatActivity {
             }
         }
     }
+    class calculateFusedOrientationTask extends TimerTask {
+        public void run() {
+            float oneMinusCoeff = 1.0f - FILTER_COEFFICIENT;
+            fusedOrientation[0] =
+                    FILTER_COEFFICIENT * gyroOrientation[0]
+                            + oneMinusCoeff * accMagOrientation[0];
+
+            fusedOrientation[1] =
+                    FILTER_COEFFICIENT * gyroOrientation[1]
+                            + oneMinusCoeff * accMagOrientation[1];
+
+            fusedOrientation[2] =
+                    FILTER_COEFFICIENT * gyroOrientation[2]
+                            + oneMinusCoeff * accMagOrientation[2];
+
+            // overwrite gyro matrix and orientation with fused orientation
+            // to comensate gyro drift
+            currentRotationMatrix = getRotationMatrixFromOrientation(fusedOrientation);
+            System.arraycopy(fusedOrientation, 0, gyroOrientation, 0, 3);
+        }
+    }
 
     class RadioOnClick implements DialogInterface.OnClickListener{
         private int index;
@@ -305,8 +331,8 @@ public class Accelerometer extends AppCompatActivity {
     private void updateClockUI() {
         SimpleDateFormat sDateFormat = new SimpleDateFormat("HH:mm:ss");
         now_time.setText(sDateFormat.format(new Date()));
-        gyroscopeView.setText("Gyroscope: " + x1 + ", " + y1 + ", " + z1);
-        accelerometerView.setText("Accelerometer: " + x2 + ", " + y2 + ", " + z2);
+        gyroscopeView.setText("Gyroscope: " + gyroOrientation[0] + ", " + gyroOrientation[1] + ", " + gyroOrientation[2]);
+        accelerometerView.setText("Accelerometer: " + accel[0] + ", " + accel[1] + ", " + accel[2]);
     }
     private void test(){
         SimpleDateFormat sDateFormat = new SimpleDateFormat("HH:mm:ss:SSS");
@@ -326,31 +352,41 @@ public class Accelerometer extends AppCompatActivity {
             }
             filedetail = "";
         }
-        filedetail += sDateFormat.format(new Date()) + "\nx1 " + gyroscopeOrientation[0] + " y1 " + gyroscopeOrientation[1] + " z1 " + gyroscopeOrientation[2]
-                + "\nx2 " + x2 + " y2 " + y2 + " z2 " + z2 + "\nx3 " + x3 + " y3 " + y3 + " z3 " + z3 + "\n";
+        filedetail += sDateFormat.format(new Date()) + "\nx1 " + gyroOrientation[0] + " y1 " + gyroOrientation[1] + " z1 " + gyroOrientation[2]
+                + "\nx2 " + accel[0] + " y2 " + accel[1] + " z2 " + accel[2] + "\nx3 " + magnet[0] + " y3 " + magnet[1] + " z3 " + magnet[2] + "\n";
+
         data_num++;
     }
 
     private void sendDataToServer(){
         try
         {
-            if(true){
+            if(data_num % 2 == 0){
                 String content = new String(String.valueOf(System.currentTimeMillis()) + ' ' +
-                        String.valueOf(gyroscopeOrientation[0]) + ' ' +
-                        String.valueOf(gyroscopeOrientation[1]) + ' ' +
-                        String.valueOf(gyroscopeOrientation[2]) + ' ' +
-                        String.valueOf(x2) + ' ' +
-                        String.valueOf(y2) + ' ' +
-                        String.valueOf(z2) + ' ' +
-                        String.valueOf(x3) + ' ' +
-                        String.valueOf(y3) + ' ' +
-                        String.valueOf(z3) + '\n');
+                        String.valueOf(gyroOrientation[0]) + ' ' +
+                        String.valueOf(gyroOrientation[1]) + ' ' +
+                        String.valueOf(gyroOrientation[2]) + '\n');
                 int l = content.length();
                 String sentData = new String(String.valueOf(l) + ' ' + content);
                 //Log.i("de","sa "+sentData);
                 BufferedWriter os= new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
                 os.write(sentData);
                 os.flush();
+//                String content = new String(String.valueOf(System.currentTimeMillis()) + ' ' +
+//                        String.valueOf(gyroOrientation[0]) + ' ' +
+//                        String.valueOf(gyroOrientation[1]) + ' ' +
+//                        String.valueOf(gyroOrientation[2]) + ' ' +
+//                        String.valueOf(accel[0]) + ' ' +
+//                        String.valueOf(accel[1]) + ' ' +
+//                        String.valueOf(accel[2]) + ' ' +
+//                        String.valueOf(magnet[0]) + ' ' +
+//                        String.valueOf(magnet[1]) + ' ' +
+//                        String.valueOf(magnet[2]) + '\n');
+//                BufferedWriter os= new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+//                //os.write(int)意思是发送一个char字符
+//                os.write(content.length());
+//                os.write(content);
+//                os.flush();
             }
         }  catch (IOException e) {
             e.printStackTrace();
@@ -415,91 +451,14 @@ public class Accelerometer extends AppCompatActivity {
 
             //得到加速度的值
             if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER && !isPaused) {
-                x2 = event.values[SensorManager.DATA_X];
-                y2 = event.values[SensorManager.DATA_Y];
-                z2 = event.values[SensorManager.DATA_Z];
-                acceleration[0] = x2;
-                acceleration[1] = y2;
-                acceleration[2] = z2;
-
+                System.arraycopy(event.values, 0, accel, 0, 3);
+                calculateAccMagOrientation();
             }
             else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD && !isPaused) {
-                x3 = event.values[SensorManager.DATA_X];
-                y3 = event.values[SensorManager.DATA_Y];
-                z3 = event.values[SensorManager.DATA_Z];
-                magnetic[0] = x3;
-                magnetic[1] = y3;
-                magnetic[2] = z3;
+                System.arraycopy(event.values, 0, magnet, 0, 3);
             }
             else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE && !isPaused) {
-
-                if (!hasInitialOrientation)
-                {
-                    hasInitialOrientation = SensorManager.getRotationMatrix(
-                            initialRotationMatrix, null, acceleration, magnetic);
-                    if(!hasInitialOrientation) return;
-                }
-
-                // Initialization of the gyroscope based rotation matrix
-                if (!stateInitialized)
-                {
-                    currentRotationMatrix = initialRotationMatrix.clone();
-                    stateInitialized = true;
-                }
-
-                // This timestep's delta rotation to be multiplied by the current
-                // rotation after computing it from the gyro sample data.
-                timestamp = event.timestamp;
-                if (timestampOld != 0 && stateInitialized)
-                {
-                    final float dT = (timestamp - timestampOld) * NS2S;
-
-                    // Axis of the rotation sample, not normalized yet.
-                    float axisX = event.values[0];
-                    float axisY = event.values[1];
-                    float axisZ = event.values[2];
-
-                    // Calculate the angular speed of the sample
-                    float omegaMagnitude = (float) Math.sqrt(axisX * axisX + axisY
-                            * axisY + axisZ * axisZ);
-                    // Normalize the rotation vector if it's big enough to get the axis
-                    if (omegaMagnitude > EPSILON)
-                    {
-                        axisX /= omegaMagnitude;
-                        axisY /= omegaMagnitude;
-                        axisZ /= omegaMagnitude;
-                    }
-
-                    // Integrate around this axis with the angular speed by the timestep
-                    // in order to get a delta rotation from this sample over the
-                    // timestep. We will convert this axis-angle representation of the
-                    // delta rotation into a quaternion before turning it into the
-                    // rotation matrix.
-                    float thetaOverTwo = omegaMagnitude * dT / 2.0f;
-
-                    float sinThetaOverTwo = (float) Math.sin(thetaOverTwo);
-                    float cosThetaOverTwo = (float) Math.cos(thetaOverTwo);
-
-                    deltaRotationVector[0] = sinThetaOverTwo * axisX;
-                    deltaRotationVector[1] = sinThetaOverTwo * axisY;
-                    deltaRotationVector[2] = sinThetaOverTwo * axisZ;
-                    deltaRotationVector[3] = cosThetaOverTwo;
-
-                    SensorManager.getRotationMatrixFromVector(
-                            deltaRotationMatrix,
-                            deltaRotationVector);
-
-                    currentRotationMatrix = matrixMultiplication(
-                            currentRotationMatrix,
-                            deltaRotationMatrix);
-                    Log.v("deltaRotationMatrix", String.valueOf(deltaRotationMatrix[1]));
-                    SensorManager.getOrientation(currentRotationMatrix,
-                            gyroscopeOrientation);
-                    x1 = gyroscopeOrientation[0]*180/(float)Math.PI;
-                    y1 = gyroscopeOrientation[1]*180/(float)Math.PI;
-                    z1 = gyroscopeOrientation[2]*180/(float)Math.PI;
-                }
-                timestampOld = timestamp;
+                gyroFunction(event);
             }
 
         }
@@ -507,6 +466,138 @@ public class Accelerometer extends AppCompatActivity {
         @Override
         public void onAccuracyChanged(Sensor sensor, int accuracy) {
         }
+    }
+    public void gyroFunction(SensorEvent event) {
+        if (!hasInitialOrientation)
+        {
+            hasInitialOrientation = SensorManager.getRotationMatrix(
+                    initialRotationMatrix, null, accel, magnet);
+//            float [] a = matrixMultiSpec(initialRotationMatrix, initialRotationMatrix);
+//            for (int k = 0; k < 9; k++){
+//                Log.v("matrix", "a"+k+"="+a[k]);
+//            }
+            if(!hasInitialOrientation) return;
+        }
+
+        // Initialization of the gyroscope based rotation matrix
+        if (!stateInitialized)
+        {
+            currentRotationMatrix = initialRotationMatrix.clone();
+            stateInitialized = true;
+        }
+
+        // This timestep's delta rotation to be multiplied by the current
+        // rotation after computing it from the gyro sample data.
+
+        if (stateInitialized)
+        {
+            // Axis of the rotation sample, not normalized yet.
+            timestamp = event.timestamp;
+            final float dT = (timestamp - timestampOld) * NS2S;
+            timestampOld = timestamp;
+            if(dT == 0) return;
+            float axisX = event.values[0];
+            float axisY = event.values[1];
+            float axisZ = event.values[2];
+
+            // Calculate the angular speed of the sample
+            float omegaMagnitude = (float) Math.sqrt(axisX * axisX + axisY
+                    * axisY + axisZ * axisZ);
+            // Normalize the rotation vector if it's big enough to get the axis
+            if (omegaMagnitude > EPSILON)
+            {
+                axisX /= omegaMagnitude;
+                axisY /= omegaMagnitude;
+                axisZ /= omegaMagnitude;
+            }
+
+            // Integrate around this axis with the angular speed by the timestep
+            // in order to get a delta rotation from this sample over the
+            // timestep. We will convert this axis-angle representation of the
+            // delta rotation into a quaternion before turning it into the
+            // rotation matrix.
+            float thetaOverTwo = omegaMagnitude * dT / 2.0f;
+
+            float sinThetaOverTwo = (float) Math.sin(thetaOverTwo);
+            float cosThetaOverTwo = (float) Math.cos(thetaOverTwo);
+
+            deltaRotationVector[0] = sinThetaOverTwo * axisX;
+            deltaRotationVector[1] = sinThetaOverTwo * axisY;
+            deltaRotationVector[2] = sinThetaOverTwo * axisZ;
+            deltaRotationVector[3] = cosThetaOverTwo;
+
+            SensorManager.getRotationMatrixFromVector(
+                    deltaRotationMatrix,
+                    deltaRotationVector);
+
+            currentRotationMatrix = matrixMultiplication(
+                    currentRotationMatrix,
+                    deltaRotationMatrix);
+//            Log.v("deltaRotationMatrix", String.valueOf(deltaRotationMatrix[1]));
+            SensorManager.getOrientation(currentRotationMatrix,
+                    gyroOrientation);
+
+            float oneMinusCoeff = 1.0f - FILTER_COEFFICIENT;
+            fusedOrientation[0] =
+                    FILTER_COEFFICIENT * gyroOrientation[0]
+                            + oneMinusCoeff * accMagOrientation[0];
+
+            fusedOrientation[1] =
+                    FILTER_COEFFICIENT * gyroOrientation[1]
+                            + oneMinusCoeff * accMagOrientation[1];
+
+            fusedOrientation[2] =
+                    FILTER_COEFFICIENT * gyroOrientation[2]
+                            + oneMinusCoeff * accMagOrientation[2];
+
+            // overwrite gyro matrix and orientation with fused orientation
+            // to comensate gyro drift
+            currentRotationMatrix = getRotationMatrixFromOrientation(fusedOrientation);
+            System.arraycopy(fusedOrientation, 0, gyroOrientation, 0, 3);
+//            SensorManager.getOrientation(matrixMultiSpec(currentRotationMatrix, initialRotationMatrix) ,
+//                    gyroOrientation);
+            gyroOrientation[0]*=180/(float)Math.PI;
+            gyroOrientation[1]*=180/(float)Math.PI;
+            gyroOrientation[2]*=180/(float)Math.PI;
+        }
+
+    }
+    public void calculateAccMagOrientation() {
+        if(SensorManager.getRotationMatrix(rotationMatrix, null, accel, magnet)) {
+            SensorManager.getOrientation(rotationMatrix, accMagOrientation);
+        }
+    }
+    private float[] getRotationMatrixFromOrientation(float[] o) {
+        float[] xM = new float[9];
+        float[] yM = new float[9];
+        float[] zM = new float[9];
+
+        float sinX = (float)Math.sin(o[1]);
+        float cosX = (float)Math.cos(o[1]);
+        float sinY = (float)Math.sin(o[2]);
+        float cosY = (float)Math.cos(o[2]);
+        float sinZ = (float)Math.sin(o[0]);
+        float cosZ = (float)Math.cos(o[0]);
+
+        // rotation about x-axis (pitch)
+        xM[0] = 1.0f; xM[1] = 0.0f; xM[2] = 0.0f;
+        xM[3] = 0.0f; xM[4] = cosX; xM[5] = sinX;
+        xM[6] = 0.0f; xM[7] = -sinX; xM[8] = cosX;
+
+        // rotation about y-axis (roll)
+        yM[0] = cosY; yM[1] = 0.0f; yM[2] = sinY;
+        yM[3] = 0.0f; yM[4] = 1.0f; yM[5] = 0.0f;
+        yM[6] = -sinY; yM[7] = 0.0f; yM[8] = cosY;
+
+        // rotation about z-axis (azimuth)
+        zM[0] = cosZ; zM[1] = sinZ; zM[2] = 0.0f;
+        zM[3] = -sinZ; zM[4] = cosZ; zM[5] = 0.0f;
+        zM[6] = 0.0f; zM[7] = 0.0f; zM[8] = 1.0f;
+
+        // rotation order is y, x, z (roll, pitch, azimuth)
+        float[] resultMatrix = matrixMultiplication(xM, yM);
+        resultMatrix = matrixMultiplication(zM, resultMatrix);
+        return resultMatrix;
     }
     private float[] matrixMultiplication(float[] a, float[] b)
     {
@@ -523,6 +614,34 @@ public class Accelerometer extends AppCompatActivity {
         result[6] = a[6] * b[0] + a[7] * b[3] + a[8] * b[6];
         result[7] = a[6] * b[1] + a[7] * b[4] + a[8] * b[7];
         result[8] = a[6] * b[2] + a[7] * b[5] + a[8] * b[8];
+
+        return result;
+    }
+    private float[] matrixMultiSpec(float[] a, float[] b)
+    {
+        /*返回a乘以b的转置
+        * <pre>
+        *   /  a[ 0]   a[ 1]   a[ 2]   \
+        *   |  a[ 3]   a[ 4]   a[ 5]   |
+        *   \  a[ 6]   a[ 7]   a[ 8]   /
+        *   /  b[ 0]   b[ 3]   b[ 6]   \
+        *   |  b[ 1]   b[ 4]   b[ 7]   |
+        *   \  b[ 2]   b[ 5]   b[ 8]   /
+        *</pre>
+        */
+        float[] result = new float[9];
+
+        result[0] = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        result[1] = a[0] * b[3] + a[1] * b[4] + a[2] * b[5];
+        result[2] = a[0] * b[6] + a[1] * b[7] + a[2] * b[8];
+
+        result[3] = a[3] * b[0] + a[4] * b[1] + a[5] * b[2];
+        result[4] = a[3] * b[3] + a[4] * b[4] + a[5] * b[5];
+        result[5] = a[3] * b[6] + a[4] * b[7] + a[5] * b[8];
+
+        result[6] = a[6] * b[0] + a[7] * b[1] + a[8] * b[2];
+        result[7] = a[6] * b[3] + a[7] * b[4] + a[8] * b[5];
+        result[8] = a[6] * b[6] + a[7] * b[7] + a[8] * b[8];
 
         return result;
     }
