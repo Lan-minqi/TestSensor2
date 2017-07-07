@@ -362,31 +362,31 @@ public class Accelerometer extends AppCompatActivity {
         try
         {
             if(data_num % 2 == 0){
-                String content = new String(String.valueOf(System.currentTimeMillis()) + ' ' +
-                        String.valueOf(gyroOrientation[0]) + ' ' +
-                        String.valueOf(gyroOrientation[1]) + ' ' +
-                        String.valueOf(gyroOrientation[2]) + '\n');
-                int l = content.length();
-                String sentData = new String(String.valueOf(l) + ' ' + content);
-                //Log.i("de","sa "+sentData);
-                BufferedWriter os= new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-                os.write(sentData);
-                os.flush();
 //                String content = new String(String.valueOf(System.currentTimeMillis()) + ' ' +
 //                        String.valueOf(gyroOrientation[0]) + ' ' +
 //                        String.valueOf(gyroOrientation[1]) + ' ' +
-//                        String.valueOf(gyroOrientation[2]) + ' ' +
-//                        String.valueOf(accel[0]) + ' ' +
-//                        String.valueOf(accel[1]) + ' ' +
-//                        String.valueOf(accel[2]) + ' ' +
-//                        String.valueOf(magnet[0]) + ' ' +
-//                        String.valueOf(magnet[1]) + ' ' +
-//                        String.valueOf(magnet[2]) + '\n');
+//                        String.valueOf(gyroOrientation[2]) + '\n');
+//                int l = content.length();
+//                String sentData = new String(String.valueOf(l) + ' ' + content);
+//                //Log.i("de","sa "+sentData);
 //                BufferedWriter os= new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-//                //os.write(int)意思是发送一个char字符
-//                os.write(content.length());
-//                os.write(content);
+//                os.write(sentData);
 //                os.flush();
+                String content = new String(String.valueOf(System.currentTimeMillis()) + ' ' +
+                        String.valueOf(gyroOrientation[0]) + ' ' +
+                        String.valueOf(gyroOrientation[1]) + ' ' +
+                        String.valueOf(gyroOrientation[2]) + ' ' +
+                        String.valueOf(accel[0]) + ' ' +
+                        String.valueOf(accel[1]) + ' ' +
+                        String.valueOf(accel[2]) + ' ' +
+                        String.valueOf(magnet[0]) + ' ' +
+                        String.valueOf(magnet[1]) + ' ' +
+                        String.valueOf(magnet[2]) + '\n');
+                BufferedWriter os= new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                //os.write(int)意思是发送一个char字符
+                //os.write(content.length());
+                os.write(content);
+                os.flush();
             }
         }  catch (IOException e) {
             e.printStackTrace();
@@ -452,13 +452,14 @@ public class Accelerometer extends AppCompatActivity {
             //得到加速度的值
             if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER && !isPaused) {
                 System.arraycopy(event.values, 0, accel, 0, 3);
-                calculateAccMagOrientation();
+                //calculateAccMagOrientation();
             }
             else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD && !isPaused) {
                 System.arraycopy(event.values, 0, magnet, 0, 3);
             }
             else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE && !isPaused) {
-                gyroFunction(event);
+                System.arraycopy(event.values, 0, gyroOrientation, 0, 3);
+                //gyroFunction(event);
             }
 
         }
