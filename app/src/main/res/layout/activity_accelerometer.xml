@@ -54,6 +54,20 @@
         </LinearLayout>
 
         <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <Button
+                android:text="采集数据时间间隔: "
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/sample_time"
+                android:layout_weight="1" />
+
+        </LinearLayout>
+
+        <LinearLayout
             android:orientation="vertical"
             android:layout_width="match_parent"
             android:layout_height="wrap_content">

@@ -69,6 +69,8 @@ public class Accelerometer extends AppCompatActivity {
     private Button stop;
     private Button open;
     private Button settings;
+    private Button sample_time;
+    private String sample_button_text = "采样数据时间间隔：";
     private String[] areas = new String[]{"FASTEST", "GAME", "UI", "NORMAL" };
     //对应SensorManager的0,1,2,3
     private RadioOnClick radioOnClick = new RadioOnClick(0);
@@ -101,7 +103,7 @@ public class Accelerometer extends AppCompatActivity {
     private float[] accel = new float[3];
     private float[] magnet = new float[3];
     private float[] gyro = new float[3];
-    public static final int TIME_CONSTANT = 30;
+    public int TIME_CONSTANT = 30;
     public static final float FILTER_COEFFICIENT = 0.98f;
     private float timestamp = 0;
     private float timestampOld = 0;
@@ -148,6 +150,8 @@ public class Accelerometer extends AppCompatActivity {
         stop = (Button) findViewById(R.id.stop_test);
         open = (Button) findViewById(R.id.open);
         settings = (Button) findViewById(R.id.settings);
+        sample_time = (Button) findViewById(R.id.sample_time);
+        sample_time.setText(sample_button_text + String.valueOf(TIME_CONSTANT) + "ms");
 
         now_time = (TextView) findViewById(R.id.now_time);
         mContext = getApplicationContext();
@@ -185,13 +189,34 @@ public class Accelerometer extends AppCompatActivity {
                         if(isPaused) return;
                         writeFile(false);
                         // TODO Auto-generated method stub
-                    }},0, 20);
+                    }},0, TIME_CONSTANT);
                 //fuseTimer.scheduleAtFixedRate(new calculateFusedOrientationTask(), 1000, TIME_CONSTANT);
                 Log.i("debug start", start_time+ Environment.getExternalStorageDirectory());
                 onResume();
                 uiHandle.removeMessages(1);
                 isPaused = false;
                 uiHandle.sendEmptyMessageDelayed(1, 0);
+            }
+        });
+        sample_time.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                final AlertDialog.Builder builder=new AlertDialog.Builder(Accelerometer.this);
+                builder.setTitle("输入时间间隔");
+                final EditText ed = new EditText(Accelerometer.this);
+                ed.setText(String.valueOf(TIME_CONSTANT));
+                builder.setView(ed);
+                builder.setPositiveButton("确定", new DialogInterface.OnClickListener(){
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        TIME_CONSTANT = Integer.valueOf(ed.getText().toString());
+                        sample_time.setText(sample_button_text + String.valueOf(TIME_CONSTANT) + "ms");
+                    }
+                });
+
+                AlertDialog dialog=builder.create();
+                dialog.show();
             }
         });
 
@@ -244,19 +269,7 @@ public class Accelerometer extends AppCompatActivity {
                                 try {
                                     socket=new Socket(urlPath, 12345);
                                     Toast.makeText(Accelerometer.this, "Socket创建成功", Toast.LENGTH_LONG).show();
-                                } catch (SocketException e) {
-                                    Log.i("ipsss",urlPath);
-                                    Toast.makeText(Accelerometer.this, e.getMessage(), Toast.LENGTH_LONG).show();
-                                    e.getCause();
-                                } catch (UnknownHostException e) {
-                                    Log.i("ipsss",urlPath);
-                                    Toast.makeText(Accelerometer.this, e.getMessage(), Toast.LENGTH_LONG).show();
-                                    e.printStackTrace();
                                 } catch (IOException e) {
-                                    Log.i("ipsss",urlPath);
-                                    Toast.makeText(Accelerometer.this, e.getMessage(), Toast.LENGTH_LONG).show();
-                                    e.printStackTrace();
-                                } catch(NetworkOnMainThreadException e){
                                     Log.i("ipsss",urlPath);
                                     Toast.makeText(Accelerometer.this, e.getMessage(), Toast.LENGTH_LONG).show();
                                     e.printStackTrace();
@@ -331,8 +344,8 @@ public class Accelerometer extends AppCompatActivity {
     private void updateClockUI() {
         SimpleDateFormat sDateFormat = new SimpleDateFormat("HH:mm:ss");
         now_time.setText(sDateFormat.format(new Date()));
-        gyroscopeView.setText("Gyroscope: " + gyroOrientation[0] + ", " + gyroOrientation[1] + ", " + gyroOrientation[2]);
-        accelerometerView.setText("Accelerometer: " + accel[0] + ", " + accel[1] + ", " + accel[2]);
+        //gyroscopeView.setText("Gyroscope: " + gyroOrientation[0] + ", " + gyroOrientation[1] + ", " + gyroOrientation[2]);
+        //accelerometerView.setText("Accelerometer: " + accel[0] + ", " + accel[1] + ", " + accel[2]);
     }
     private void test(){
         SimpleDateFormat sDateFormat = new SimpleDateFormat("HH:mm:ss:SSS");
