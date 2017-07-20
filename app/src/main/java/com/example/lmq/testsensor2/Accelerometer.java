@@ -86,7 +86,7 @@ public class Accelerometer extends AppCompatActivity {
     private String urlPath="192.168.56.1";
     private Socket socket;
     private boolean stopClicked = false;
-    private boolean useNet = true;
+    private boolean useNet = false;
     //！！！使用时手机要和服务器处于同一局域网下。。。
 
     private final float[] angles = new float[3];
@@ -174,7 +174,7 @@ public class Accelerometer extends AppCompatActivity {
                 SimpleDateFormat sDateFormat = new SimpleDateFormat("HH-mm-ss");
                 start_time = sDateFormat.format(new Date());
                 try {
-                    fHelper = new SDFileHelper(mContext, start_time + areas[radioOnClick.getIndex()]);
+                    fHelper = new SDFileHelper(mContext, start_time + areas[radioOnClick.getIndex()], "write");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -182,7 +182,7 @@ public class Accelerometer extends AppCompatActivity {
                 data_num = 0;
                 timestamp = 0;
                 Timer timer = new Timer();
-                //Timer fuseTimer = new Timer();
+                //Log.e("sadasd", "dsad "+ String.valueOf(TIME_CONSTANT));
                 timer.schedule(new TimerTask() {
                     @Override
                     public void run() {
@@ -190,8 +190,6 @@ public class Accelerometer extends AppCompatActivity {
                         writeFile(false);
                         // TODO Auto-generated method stub
                     }},0, TIME_CONSTANT);
-                //fuseTimer.scheduleAtFixedRate(new calculateFusedOrientationTask(), 1000, TIME_CONSTANT);
-                Log.i("debug start", start_time+ Environment.getExternalStorageDirectory());
                 onResume();
                 uiHandle.removeMessages(1);
                 isPaused = false;
@@ -228,14 +226,16 @@ public class Accelerometer extends AppCompatActivity {
                 stopClicked = true;
                 isPaused = true;
                 timestamp = 0;
-                if (useNet){
-                try {
-                    socket.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
+
                 writeFile(true);
+                try {
+                    fHelper.finalize();
+                    if (useNet)
+                        sendDataToServer();
+                } catch (Throwable throwable) {
+                    throwable.printStackTrace();
+                }
+
                 sensorManager.unregisterListener(sensorEventListener);
             }
         });
@@ -262,20 +262,22 @@ public class Accelerometer extends AppCompatActivity {
                 builder.setNegativeButton("连接", new DialogInterface.OnClickListener(){
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        new Thread(new Runnable() {
-                            @Override
-                            public void run() {
-                                Looper.prepare();
-                                try {
-                                    socket=new Socket(urlPath, 12345);
-                                    Toast.makeText(Accelerometer.this, "Socket创建成功", Toast.LENGTH_LONG).show();
-                                } catch (IOException e) {
-                                    Log.i("ipsss",urlPath);
-                                    Toast.makeText(Accelerometer.this, e.getMessage(), Toast.LENGTH_LONG).show();
-                                    e.printStackTrace();
-                                }
-                            }
-                        }).start();
+                        useNet = true;
+//                        new Thread(new Runnable() {
+//                            @Override
+//                            public void run() {
+//                                Looper.prepare();
+//                                try {
+//                                    socket=new Socket(urlPath, 12345);
+//                                    useNet = true;
+//                                    //Toast.makeText(Accelerometer.this, "Socket创建成功", Toast.LENGTH_LONG).show();
+//                                } catch (IOException e) {
+//                                    useNet = false;
+//                                    Toast.makeText(Accelerometer.this, e.getMessage(), Toast.LENGTH_LONG).show();
+//                                    e.printStackTrace();
+//                                }
+//                            }
+//                        }).start();
                     }
                 });
                 AlertDialog dialog=builder.create();
@@ -347,26 +349,22 @@ public class Accelerometer extends AppCompatActivity {
         //gyroscopeView.setText("Gyroscope: " + gyroOrientation[0] + ", " + gyroOrientation[1] + ", " + gyroOrientation[2]);
         //accelerometerView.setText("Accelerometer: " + accel[0] + ", " + accel[1] + ", " + accel[2]);
     }
-    private void test(){
-        SimpleDateFormat sDateFormat = new SimpleDateFormat("HH:mm:ss:SSS");
-        Log.i("debug", sDateFormat.format(new Date()));
-    }
+
     private void writeFile(boolean force){
         SimpleDateFormat sDateFormat = new SimpleDateFormat("HH:mm:ss:SSS");
-        if (useNet) sendDataToServer();
         if (data_num >= 500 || force) {
             Log.i("debug", filedetail.length()+" at " + sDateFormat.format(new Date()));
             data_num = 0;
             try {
-                fHelper.savaFileToSD(start_time + areas[radioOnClick.getIndex()], filedetail);
+                fHelper.savaFileToSD(filedetail);
             } catch (Exception e) {
                 e.printStackTrace();
                 Toast.makeText(getApplicationContext(), "数据写入失败", Toast.LENGTH_SHORT).show();
             }
             filedetail = "";
         }
-        filedetail += sDateFormat.format(new Date()) + "\nx1 " + gyroOrientation[0] + " y1 " + gyroOrientation[1] + " z1 " + gyroOrientation[2]
-                + "\nx2 " + accel[0] + " y2 " + accel[1] + " z2 " + accel[2] + "\nx3 " + magnet[0] + " y3 " + magnet[1] + " z3 " + magnet[2] + "\n";
+        filedetail += String.valueOf(System.currentTimeMillis()) + "\n" + gyroOrientation[0] + " " + gyroOrientation[1] + " " + gyroOrientation[2]
+                + "\n" + accel[0] + " " + accel[1] + " " + accel[2] + "\n" + magnet[0] + " " + magnet[1] + " " + magnet[2] + "\n";
 
         data_num++;
     }
@@ -374,34 +372,37 @@ public class Accelerometer extends AppCompatActivity {
     private void sendDataToServer(){
         try
         {
-            if(data_num % 2 == 0){
-//                String content = new String(String.valueOf(System.currentTimeMillis()) + ' ' +
-//                        String.valueOf(gyroOrientation[0]) + ' ' +
-//                        String.valueOf(gyroOrientation[1]) + ' ' +
-//                        String.valueOf(gyroOrientation[2]) + '\n');
-//                int l = content.length();
-//                String sentData = new String(String.valueOf(l) + ' ' + content);
-//                //Log.i("de","sa "+sentData);
-//                BufferedWriter os= new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-//                os.write(sentData);
-//                os.flush();
-                String content = new String(String.valueOf(System.currentTimeMillis()) + ' ' +
-                        String.valueOf(gyroOrientation[0]) + ' ' +
-                        String.valueOf(gyroOrientation[1]) + ' ' +
-                        String.valueOf(gyroOrientation[2]) + ' ' +
-                        String.valueOf(accel[0]) + ' ' +
-                        String.valueOf(accel[1]) + ' ' +
-                        String.valueOf(accel[2]) + ' ' +
-                        String.valueOf(magnet[0]) + ' ' +
-                        String.valueOf(magnet[1]) + ' ' +
-                        String.valueOf(magnet[2]) + '\n');
-                BufferedWriter os= new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-                //os.write(int)意思是发送一个char字符
-                //os.write(content.length());
-                os.write(content);
-                os.flush();
-            }
+            SDFileHelper fReadHelper = new SDFileHelper(mContext, start_time + areas[radioOnClick.getIndex()], "read");
+            final StringBuffer buffer = fReadHelper.readFileFromSD();
+            fReadHelper.finalize();
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Looper.prepare();
+                    try {
+                        socket=new Socket(urlPath, 12345);
+                        BufferedWriter os= new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                        //os.write(int)意思是发送一个char字符
+                        //os.write(content.length());
+                        os.write(buffer.toString());
+                        os.flush();
+                    } catch (IOException e) {
+                        Toast.makeText(Accelerometer.this, e.getMessage(), Toast.LENGTH_LONG).show();
+                        e.printStackTrace();
+                    }
+                }
+            }).start();
+
         }  catch (IOException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
+        try {
+            socket.close();
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
